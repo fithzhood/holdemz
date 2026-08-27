@@ -48,24 +48,27 @@ const STREET_NAME = { preflop: 'Pre-flop', flop: 'Flop', turn: 'Turn', river: 'R
 const SEAT_ANGLE = [90, 160, 215, 325, 20];
 
 /* Gli avversari prendono nome e carattere dal colore che gli tocca.
- * Le soglie sono quelle del 2025, riportate parola per parola. */
+ * Le soglie sono quelle del 2025, riportate parola per parola; il `vizio`
+ * e' la novita' del 2026 — vedi la sezione dei tell. */
 const CAST = [
-    { hex: '#6d28d9', name: 'Purple',   tag: 'The Calculator', fold: .35, raise: .70, bluff: .05, loose: .30 },
-    { hex: '#b91c1c', name: 'Crimson',  tag: 'The Warrior',    fold: .20, raise: .45, bluff: .25, loose: .70 },
-    { hex: '#2563eb', name: 'Blue',     tag: 'The Purist',     fold: .40, raise: .75, bluff: .03, loose: .25 },
-    { hex: '#15803d', name: 'Green',    tag: 'The Trickster',  fold: .25, raise: .40, bluff: .45, loose: .60 },
-    { hex: '#a21caf', name: 'Magenta',  tag: 'The Gambler',    fold: .15, raise: .35, bluff: .35, loose: .80 },
-    { hex: '#a16207', name: 'Gold',     tag: 'The Shark',      fold: .22, raise: .48, bluff: .20, loose: .65 },
-    { hex: '#4338ca', name: 'Indigo',   tag: 'The Wildcard',   fold: .30, raise: .55, bluff: .30, loose: .50 },
-    { hex: '#4d7c0f', name: 'Olive',    tag: 'The Grinder',    fold: .38, raise: .72, bluff: .08, loose: .28 },
-    { hex: '#9f1239', name: 'Burgundy', tag: 'The Rock',       fold: .42, raise: .78, bluff: .02, loose: .20 },
-    { hex: '#0e7490', name: 'Sage',     tag: 'The Fox',        fold: .28, raise: .42, bluff: .40, loose: .55 },
-    { hex: '#7c4a1e', name: 'Brown',    tag: 'The Maniac',     fold: .18, raise: .38, bluff: .38, loose: .75 },
-    { hex: '#c2410c', name: 'Peru',     tag: 'The Joker',      fold: .32, raise: .50, bluff: .28, loose: .45 }
+    { hex: '#6d28d9', name: 'Purple',   tag: 'The Calculator', fold: .35, raise: .70, bluff: .05, loose: .30, vizio: 'maiPrimo' },
+    { hex: '#b91c1c', name: 'Crimson',  tag: 'The Warrior',    fold: .20, raise: .45, bluff: .25, loose: .70, vizio: 'sempreAlFlop' },
+    { hex: '#2563eb', name: 'Blue',     tag: 'The Purist',     fold: .40, raise: .75, bluff: .03, loose: .25, vizio: 'soloCoppieGrosse' },
+    { hex: '#15803d', name: 'Green',    tag: 'The Trickster',  fold: .25, raise: .40, bluff: .45, loose: .60, vizio: 'trappolaAlFlop' },
+    { hex: '#a21caf', name: 'Magenta',  tag: 'The Gambler',    fold: .15, raise: .35, bluff: .35, loose: .80, vizio: 'shoveAlRiver' },
+    { hex: '#a16207', name: 'Gold',     tag: 'The Shark',      fold: .22, raise: .48, bluff: .20, loose: .65, vizio: 'misuraDelPiatto' },
+    { hex: '#4338ca', name: 'Indigo',   tag: 'The Wildcard',   fold: .30, raise: .55, bluff: .30, loose: .50, vizio: 'testaOCroce' },
+    { hex: '#4d7c0f', name: 'Olive',    tag: 'The Grinder',    fold: .38, raise: .72, bluff: .08, loose: .28, vizio: 'maiPrimaDelRiver' },
+    { hex: '#9f1239', name: 'Burgundy', tag: 'The Rock',       fold: .42, raise: .78, bluff: .02, loose: .20, vizio: 'cedeAlRilancio' },
+    { hex: '#0e7490', name: 'Sage',     tag: 'The Fox',        fold: .28, raise: .42, bluff: .40, loose: .55, vizio: 'turnDopoIlCheck' },
+    { hex: '#7c4a1e', name: 'Brown',    tag: 'The Maniac',     fold: .18, raise: .38, bluff: .38, loose: .75, vizio: 'apreSempre' },
+    { hex: '#c2410c', name: 'Peru',     tag: 'The Joker',      fold: .32, raise: .50, bluff: .28, loose: .45, vizio: 'paganoccia' }
 ];
 
 const THEMES = ['felt', 'midnight', 'ivory', 'neon'];
 const STORE = 'holdemz.prefs.v1';
+
+const TELL_P = .8;           // quanto spesso il vizio prende il sopravvento
 
 const ACT_MS = 620;          // pausa dopo la mossa di un avversario
 const STREET_MS = 800;       // pausa fra una fase e l'altra
@@ -86,6 +89,7 @@ const state = {
     minRaise: BIG_BLIND,
     toAct: -1,
     acted: null,
+    flopChecked: false,
     hand: 0,
     phase: 'idle',       // 'idle' | 'playing' | 'over' | 'gameover'
     busy: false,
@@ -200,12 +204,13 @@ function newPlayers() {
     const mk = (c, human) => ({
         name: human ? 'You' : c.name,
         tag: human ? '' : c.tag,
+        vizio: human ? null : c.vizio,
         hex: c.hex,
         quirks: { fold: c.fold, raise: c.raise, bluff: c.bluff, loose: c.loose },
         coins: START_COINS,
         cards: [],
         isHuman: !!human,
-        out: false, folded: false, allIn: false,
+        out: false, folded: false, allIn: false, spoke: false,
         bet: 0, total: 0, hand: null, verdict: null, won: 0
     });
     return [mk(mine, true), ...picks.map(c => mk(c, false))];
@@ -274,14 +279,123 @@ function handStrength(p) {
     return Math.min(1, s);
 }
 
+
+/* ============================================================
+ * 4-bis. I VIZI
+ *
+ * Le soglie da sole non bastano a dare un carattere riconoscibile: su
+ * 66 coppie di avversari, 12 differiscono di meno di 12 punti su 100 e
+ * la coppia mediana richiede 18 mani per essere distinta — piu' di una
+ * partita intera. Una soglia si legge in diciotto mani, una regola in
+ * una: da qui i vizi.
+ *
+ * Ognuno scatta 4 volte su 5. Al 100% diventerebbero serrature: la
+ * lettura sarebbe gratis e non ci sarebbe piu' niente da indovinare.
+ * ============================================================ */
+
+/** Il contesto che serve ai vizi, tutto gia' presente nello stato. */
+function contesto(p) {
+    const call = Math.max(0, state.currentBet - p.bet);
+    const acted = state.acted || new Set();
+    return {
+        call,
+        street: state.street,
+        primo: call === 0 && acted.size === 0,            // parla per primo, nessuno ha puntato
+        puoRilanciare: p.coins > call,
+        primaMossa: !p.spoke,                              // prima mossa sua in questa mano
+        flopPassato: state.flopChecked
+    };
+}
+
+/** La mossa dettata dal vizio, oppure null per lasciar decidere le soglie. */
+function tellMove(p, forza) {
+    if (!p.vizio || Math.random() > TELL_P) return null;
+    const c = contesto(p);
+    const rilancia = () => c.puoRilanciare ? raiseDecision(p, forza) : null;
+    const shove = () => c.puoRilanciare ? { type: 'raise', to: p.bet + p.coins } : null;
+
+    switch (p.vizio) {
+        // non apre mai le danze: se punta lui, ce l'ha
+        case 'maiPrimo':
+            return c.primo ? { type: 'check' } : null;
+
+        // entrato nel piatto, al flop punta comunque
+        case 'sempreAlFlop':
+            return c.street === 'flop' && c.call === 0 ? rilancia() : null;
+
+        // preflop non paga un rilancio senza una coppia grossa
+        case 'soloCoppieGrosse': {
+            if (c.street !== 'preflop' || c.call <= BIG_BLIND) return null;
+            const [a, b] = p.cards;
+            const coppiaGrossa = a.r === b.r && a.r >= 10;
+            return coppiaGrossa ? null : { type: 'fold' };
+        }
+
+        // con la mano forte passa al flop e punta al turn: sempre la stessa trappola
+        case 'trappolaAlFlop':
+            if (c.street === 'flop' && c.call === 0 && forza > .6) return { type: 'check' };
+            if (c.street === 'turn' && c.call === 0 && forza > .5) return rilancia();
+            return null;
+
+        // al river spinge tutto se il piatto vale piu' delle sue monete
+        case 'shoveAlRiver':
+            return c.street === 'river' && state.pot > p.coins ? shove() : null;
+
+        // quando rilancia, rilancia della misura del piatto
+        case 'misuraDelPiatto': {
+            if (!c.puoRilanciare || forza < p.quirks.raise) return null;
+            const to = Math.min(p.bet + p.coins,
+                                Math.max(state.currentBet + state.minRaise, state.pot));
+            return to > state.currentBet ? { type: 'raise', to } : null;
+        }
+
+        // la sua prima mossa di ogni mano e' a sorte, carte a parte
+        case 'testaOCroce': {
+            if (!c.primaMossa) return null;
+            const r = Math.random();
+            if (c.call === 0) return r < .5 ? { type: 'check' } : (rilancia() || { type: 'check' });
+            if (r < .34) return { type: 'fold' };
+            if (r < .74) return { type: 'call' };
+            return rilancia() || { type: 'call' };
+        }
+
+        // non rilancia mai prima del river
+        case 'maiPrimaDelRiver':
+            return null;      // gestito a valle: il rilancio viene declassato
+
+        // lascia a qualunque rilancio se non ha almeno doppia coppia
+        case 'cedeAlRilancio':
+            return c.call > 0 && forza < .64 ? { type: 'fold' } : null;
+
+        // se al flop passano tutti, al turn punta lui, con qualunque cosa
+        case 'turnDopoIlCheck':
+            return c.street === 'turn' && c.flopPassato && c.call === 0 ? rilancia() : null;
+
+        // apre sempre il primo giro di ogni mano che gioca
+        case 'apreSempre':
+            return c.street === 'preflop' && c.primaMossa ? rilancia() : null;
+
+        // non lascia mai quando pagare costa una o due monete
+        case 'paganoccia':
+            return c.call > 0 && c.call <= 2 ? { type: 'call' } : null;
+    }
+    return null;
+}
+
 function npcDecision(p) {
     const q = p.quirks;
     const call = Math.max(0, state.currentBet - p.bet);
     const strength = handStrength(p);
 
+    // il vizio, quando scatta, viene prima di tutto il resto
+    const vizio = tellMove(p, strength);
+    if (vizio) return frenaGrinder(p, vizio);
+
     // niente da pagare: si passa, salvo chi ha il vizio di aprire
     if (call === 0) {
-        if (strength > q.raise && Math.random() < q.bluff * 1.5) return raiseDecision(p, strength);
+        if (strength > q.raise && Math.random() < q.bluff * 1.5) {
+            return frenaGrinder(p, raiseDecision(p, strength));
+        }
         return { type: 'check' };
     }
 
@@ -297,7 +411,7 @@ function npcDecision(p) {
      * tratto. The Trickster, il bluffatore per definizione, non bluffava. */
     if (strength < q.fold && !wouldBeAllIn &&
         callPct <= q.bluff * .8 + .08 && Math.random() < q.bluff * .45) {
-        return raiseDecision(p, strength);
+        return frenaGrinder(p, raiseDecision(p, strength));
     }
 
     if (strength < q.fold) {
@@ -311,7 +425,7 @@ function npcDecision(p) {
      * minimo di 0,25 glielo permette; a tenerli stretti resta la soglia
      * sulla forza della mano, che per loro e' altissima. */
     if (!wouldBeAllIn && strength > q.raise && callPct <= Math.max(q.loose * .5, .25)) {
-        return Math.random() < .5 ? raiseDecision(p, strength) : { type: 'call' };
+        return Math.random() < .5 ? frenaGrinder(p, raiseDecision(p, strength)) : { type: 'call' };
     }
 
     /* Il bluff. Il tetto di costo era anche qui legato alla larghezza di
@@ -320,7 +434,7 @@ function npcDecision(p) {
      * mentre The Maniac lo faceva. Adesso e' il bluff stesso a decidere
      * fin dove ci si spinge. */
     if (!wouldBeAllIn && Math.random() < q.bluff && callPct <= q.bluff * .8 + .08) {
-        return Math.random() < .6 ? raiseDecision(p, strength) : { type: 'call' };
+        return Math.random() < .6 ? frenaGrinder(p, raiseDecision(p, strength)) : { type: 'call' };
     }
 
     if (wouldBeAllIn) {
@@ -333,6 +447,14 @@ function npcDecision(p) {
     }
 
     return { type: 'fold' };
+}
+
+/** Il vizio del Grinder non e' una mossa ma un divieto: qualunque rilancio
+ *  prima del river gli viene declassato a vedere o passare. */
+function frenaGrinder(p, move) {
+    if (p.vizio !== 'maiPrimaDelRiver' || state.street === 'river') return move;
+    if (move.type !== 'raise' || Math.random() > TELL_P) return move;
+    return state.currentBet - p.bet > 0 ? { type: 'call' } : { type: 'check' };
 }
 
 function raiseDecision(p, strength) {
@@ -377,9 +499,11 @@ function startHand() {
     state.street = 'preflop';
     state.phase = 'playing';
 
+    state.flopChecked = false;
     for (const p of state.players) {
         p.folded = p.out;
         p.allIn = false;
+        p.spoke = false;
         p.bet = 0;
         p.total = 0;
         p.hand = null;
@@ -437,6 +561,7 @@ async function playHand() {
             const first = s === 0 ? nextSeat(bb) : nextSeat(state.dealer);
             await bettingRound(first);
         }
+        if (state.street === 'flop' && state.currentBet === 0) state.flopChecked = true;
         if (inHand().length <= 1) break;
     }
 
@@ -490,6 +615,7 @@ async function npcTurn(p) {
 }
 
 function applyMove(p, move) {
+    p.spoke = true;
     const call = Math.max(0, state.currentBet - p.bet);
 
     if (move.type === 'fold') {
