@@ -9,7 +9,7 @@
 <title>Holdemz</title>
 <link rel="icon" href="holdemz.png">
 <link rel="stylesheet" href="carte.css?v=1">
-<link rel="stylesheet" href="holdemz.css?v=2">
+<link rel="stylesheet" href="holdemz.css?v=3">
 </head>
 <body>
 
@@ -73,6 +73,14 @@
         <button class="opt" type="button" data-theme="random">Random</button>
     </div>
 
+    <p class="menu-label">Physical tells</p>
+    <div id="fisiciButtons" class="opt-row">
+        <button class="opt" type="button" data-fisici="1">On</button>
+        <button class="opt" type="button" data-fisici="0">Off</button>
+    </div>
+    <p class="menu-hint">Each opponent picks a little movement at the start of every
+       game — a twitch, a sway, a flicker — and keeps it. Work out what sets it off.</p>
+
     <p class="menu-label">Who you are up against</p>
     <ul id="whosWho" class="whos-who"></ul>
 
@@ -104,6 +112,6 @@
 
 <script src="carte.js?v=1"></script>
 <script src="jszip.min.js?v=1"></script>
-<script src="holdemz.js?v=4"></script>
+<script src="holdemz.js?v=5"></script>
 </body>
 </html>

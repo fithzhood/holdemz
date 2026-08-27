@@ -181,8 +181,10 @@ svg { display: block; }
 }
 
 .title {
-    margin: -12px -6px;
-    padding: 12px 6px;
+    /* 13 e non 12: a 360 px il titolo si fermava a 43 px di altezza, un
+       pelo sotto il minimo per un dito */
+    margin: -13px -6px;
+    padding: 13px 6px;
     font-size: clamp(19px, 5.4vw, 26px);
     font-weight: 800;
     letter-spacing: .03em;
@@ -307,7 +309,9 @@ svg { display: block; }
 
 .seat {
     position: absolute;
-    transform: translate(-50%, -50%);
+    /* posizione con `translate`, non con `transform`: i tell fisici hanno
+       bisogno della transform tutta per se' */
+    translate: -50% -50%;
     width: var(--pod-w, 118px);
     border-radius: var(--r-pod);
     background: var(--pod);
@@ -406,6 +410,49 @@ svg { display: block; }
 .seat.mine .seat-cards { --carta-w: var(--mine-card, 46px); min-height: calc(var(--mine-card, 46px) / 0.69); }
 .seat.mine .seat-name { font-size: clamp(11px, 3.2vw, 13px); }
 
+
+/* ------------------------------------------------------- TELL FISICI
+   Ogni avversario ne prende uno a caso a inizio partita e se lo tiene
+   per tutta la partita. Sono piccoli: devono farsi notare da chi guarda
+   le facce, non saltare addosso. */
+
+.tf-saltella  { animation: tfSaltella .62s cubic-bezier(.3, 1.5, .5, 1) 2; }
+.tf-trema     { animation: tfTrema .42s ease-in-out 2; }
+.tf-sbiadisce { animation: tfSbiadisce .9s ease-in-out 1; }
+.tf-pulsa     { animation: tfPulsa 1s ease-in-out 2; }
+.tf-inclina   { animation: tfInclina .8s ease-in-out 2; }
+.tf-ondeggia .seat-cards { animation: tfOndeggia .75s ease-in-out 2; }
+
+@keyframes tfSaltella {
+    0%, 100% { transform: translateY(0); }
+    35%      { transform: translateY(-5px); }
+    60%      { transform: translateY(1px); }
+}
+@keyframes tfTrema {
+    0%, 100% { transform: translateX(0); }
+    20%      { transform: translateX(-2.5px); }
+    45%      { transform: translateX(2.5px); }
+    70%      { transform: translateX(-1.5px); }
+}
+@keyframes tfSbiadisce {
+    0%, 100% { opacity: 1; }
+    45%      { opacity: .42; }
+}
+@keyframes tfPulsa {
+    0%, 100% { filter: none; }
+    50%      { filter: saturate(1.9) brightness(1.22); }
+}
+@keyframes tfInclina {
+    0%, 100% { transform: rotate(0); }
+    40%      { transform: rotate(-1.8deg); }
+    75%      { transform: rotate(.9deg); }
+}
+@keyframes tfOndeggia {
+    0%, 100% { transform: rotate(0); }
+    30%      { transform: rotate(3.5deg); }
+    65%      { transform: rotate(-2.5deg); }
+}
+
 /* --- bottone del banco e bui --- */
 
 .badges { display: flex; gap: 3px; flex: 0 0 auto; }
@@ -429,7 +476,7 @@ svg { display: block; }
 
 .bet {
     position: absolute;
-    transform: translate(-50%, -50%);
+    translate: -50% -50%;
     display: flex;
     align-items: center;
     gap: 4px;
@@ -446,8 +493,8 @@ svg { display: block; }
 }
 .bet .chip { width: 10px; height: 10px; }
 @keyframes betIn {
-    from { transform: translate(-50%, -50%) scale(.4); opacity: 0; }
-    to   { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+    from { transform: scale(.4); opacity: 0; }
+    to   { transform: scale(1); opacity: 1; }
 }
 
 /* --- l'esito della mano, sopra il posto --- */
@@ -626,7 +673,8 @@ svg { display: block; }
 }
 .menu-label:first-of-type { margin-top: 4px; }
 
-.opt-grid { display: flex; gap: 8px; flex-wrap: wrap; }
+.opt-row, .opt-grid { display: flex; gap: 8px; flex-wrap: wrap; }
+.opt-row .opt { flex: 1 1 0; }
 .opt-grid .opt { flex: 1 1 28%; }
 
 .opt {
@@ -645,6 +693,13 @@ svg { display: block; }
     color: var(--fg);
     background: color-mix(in srgb, var(--accent) 16%, transparent);
     box-shadow: inset 0 0 0 1.5px var(--accent);
+}
+
+.menu-hint {
+    margin: 8px 0 0;
+    font-size: clamp(11px, 3vw, 12.5px);
+    line-height: 1.45;
+    color: var(--muted);
 }
 
 .whos-who { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }

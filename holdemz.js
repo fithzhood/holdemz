@@ -90,6 +90,7 @@ const state = {
     toAct: -1,
     acted: null,
     flopChecked: false,
+    fisici: true,        // i tell fisici, accendibili dal menu
     hand: 0,
     phase: 'idle',       // 'idle' | 'playing' | 'over' | 'gameover'
     busy: false,
@@ -237,6 +238,52 @@ function nextLive(i) {
         if (!p.out && !p.folded && !p.allIn && p.coins > 0) return j;
     }
     return -1;
+}
+
+
+/* ============================================================
+ * 4-ter. I TELL FISICI
+ *
+ * Il vizio si legge nelle scelte; questo si legge in faccia. A ogni
+ * partita ogni avversario si prende un movimento a caso e una
+ * condizione a caso, e se li tiene per tutta la partita: se il riquadro
+ * di Magenta saltella ogni volta che le arrivano due carte buone, dopo
+ * tre mani lo sai. Sono quattro avversari, sei movimenti e cinque
+ * condizioni, tutti diversi fra loro nella stessa partita.
+ * ============================================================ */
+
+const MOVENZE = ['saltella', 'trema', 'ondeggia', 'sbiadisce', 'pulsa', 'inclina'];
+const OCCASIONI = ['manoBuona', 'manoScarsa', 'bluffa', 'certezza', 'insegue'];
+
+function assegnaTellFisici() {
+    const mov = shuffle([...MOVENZE]);
+    const occ = shuffle([...OCCASIONI]);
+    state.players.forEach((p, i) => {
+        p.fisico = i === 0 ? null : { movenza: mov[i - 1], occasione: occ[i - 1] };
+    });
+}
+
+/** Fa scattare il tell di `p` se l'occasione e' la sua. */
+function tellFisico(p, occasione) {
+    if (!state.fisici || !p || !p.fisico || p.fisico.occasione !== occasione) return;
+    const i = state.players.indexOf(p);
+    const seat = seatEls[i] && seatEls[i].root;
+    if (!seat) return;
+    const cls = 'tf-' + p.fisico.movenza;
+    seat.classList.remove(cls);
+    void seat.offsetWidth;                  // rilancia l'animazione da capo
+    seat.classList.add(cls);
+    clearTimeout(p.fisicoTimer);
+    p.fisicoTimer = setTimeout(() => seat.classList.remove(cls), 2200);
+}
+
+/** Le occasioni che dipendono dalla mossa appena fatta. */
+function occasioneDiMossa(p, move) {
+    const forza = handStrength(p);
+    if (move.type === 'raise' && forza < p.quirks.fold) return 'bluffa';
+    if (forza >= .80) return 'certezza';
+    if (move.type === 'call' && forza < .35) return 'insegue';
+    return null;
 }
 
 /* ============================================================
@@ -512,6 +559,16 @@ function startHand() {
         p.cards = p.out ? [] : state.deck.splice(0, 2);
     }
 
+    // appena viste le carte: chi ha il tell sulla mano lo mostra adesso
+    setTimeout(() => {
+        for (const p of state.players) {
+            if (p.out || p.isHuman) continue;
+            const f = handStrength(p);
+            if (f >= .6) tellFisico(p, 'manoBuona');
+            else if (f <= .25) tellFisico(p, 'manoScarsa');
+        }
+    }, 260);
+
     // il bottone del banco scorre di un posto
     state.dealer = nextSeat(state.dealer);
 
@@ -616,6 +673,10 @@ async function npcTurn(p) {
 
 function applyMove(p, move) {
     p.spoke = true;
+    if (!p.isHuman) {
+        const occ = occasioneDiMossa(p, move);
+        if (occ) tellFisico(p, occ);
+    }
     const call = Math.max(0, state.currentBet - p.bet);
 
     if (move.type === 'fold') {
@@ -1007,6 +1068,7 @@ function say(text, big) {
 
 function newGame() {
     state.players = newPlayers();
+    assegnaTellFisici();
     state.hand = 0;
     state.dealer = Math.floor(Math.random() * 5);
     state.phase = 'idle';
@@ -1056,6 +1118,13 @@ function applyTheme(name, remember = true) {
     if (remember) savePrefs();
 }
 
+function applyFisici(on, remember = true) {
+    state.fisici = !!on;
+    els.fisiciButtons.querySelectorAll('.opt').forEach(b =>
+        b.classList.toggle('on', (b.dataset.fisici === '1') === state.fisici));
+    if (remember) savePrefs();
+}
+
 function savePrefs() {
     try { localStorage.setItem(STORE, JSON.stringify({ theme: state.theme })); }
     catch (_) { /* modalita' privata: pazienza */ }
@@ -1065,6 +1134,7 @@ function loadPrefs() {
     try {
         const p = JSON.parse(localStorage.getItem(STORE) || '{}');
         if (p.theme) state.theme = p.theme;
+        if (typeof p.fisici === 'boolean') state.fisici = p.fisici;
     } catch (_) { /* niente */ }
 }
 
@@ -1337,7 +1407,8 @@ function init() {
         btnAllIn: id('btnAllIn'), raiseUp: id('raiseUp'), raiseDown: id('raiseDown'),
         raiseVal: id('raiseVal'), btnDeal: id('btnDeal'),
         menu: id('menu'), scrim: id('scrim'), menuToggle: id('menuToggle'),
-        themeButtons: id('themeButtons'), newGameBtn: id('newGame'),
+        themeButtons: id('themeButtons'), fisiciButtons: id('fisiciButtons'),
+        newGameBtn: id('newGame'),
         whosWho: id('whosWho'), poolInfo: id('poolInfo'), fileInput: id('fileInput'),
         progress: id('progress'), progressFill: id('progressFill'),
         prizeOverlay: id('prizeOverlay'), prizeImg: id('prizeImg'),
@@ -1349,6 +1420,7 @@ function init() {
     loadPrefs();
     buildSeats();
     applyTheme(state.theme, false);
+    applyFisici(state.fisici, false);
     newGame();
 
     els.btnDeal.addEventListener('click', onDeal);
@@ -1373,6 +1445,10 @@ function init() {
     els.themeButtons.addEventListener('click', e => {
         const b = e.target.closest('.opt');
         if (b) applyTheme(b.dataset.theme);
+    });
+    els.fisiciButtons.addEventListener('click', e => {
+        const b = e.target.closest('.opt');
+        if (b) applyFisici(b.dataset.fisici === '1');
     });
 
     els.title.addEventListener('click', onTitleTap);
@@ -1400,7 +1476,7 @@ document.addEventListener('DOMContentLoaded', init);
 /* gancio per il collaudo automatico */
 window.__holdemz = {
     state, evalFive, bestHand, cmpHands, buildPots, makeDeck, shuffle,
-    npcDecision, handStrength, newGame, onDeal, CAST,
+    npcDecision, handStrength, newGame, onDeal, CAST, MOVENZE, OCCASIONI,
     answer: m => answer(m),
     waitingForYou: () => !!resolveHuman
 };
