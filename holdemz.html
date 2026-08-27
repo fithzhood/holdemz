@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="felt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta id="themeColor" name="theme-color" content="#0f2a20">
+<title>Holdemz</title>
+<link rel="icon" href="holdemz.png">
+<link rel="stylesheet" href="carte.css?v=1">
+<link rel="stylesheet" href="holdemz.css?v=1">
+</head>
+<body>
+
+<div class="app">
+
+    <header class="hud">
+        <h1 id="title" class="title" title="Holdemz">Holdem<span>z</span></h1>
+        <div class="hud-right">
+            <span id="handPill" class="pill" hidden>Hand <b id="handNo">1</b><em id="phase"></em></span>
+            <button id="menuToggle" class="icon-btn" type="button" aria-label="Settings" aria-expanded="false">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+            </button>
+        </div>
+    </header>
+
+    <!-- Il tavolo. I cinque posti li dispone il JS sull'ellisse: l'ordine
+         attorno al tavolo e' l'ordine di gioco, quindi conta. -->
+    <main id="felt" class="felt">
+        <div class="rail"></div>
+        <div id="middle" class="middle">
+            <div id="pot" class="pot" hidden><i class="chip"></i><b id="potAmount">0</b></div>
+            <div id="community" class="community"></div>
+        </div>
+        <div id="seats" class="seats"></div>
+        <div id="bets" class="bets"></div>
+    </main>
+
+    <footer id="foot" class="foot">
+        <p id="status" class="status" role="status" aria-live="polite">Texas hold'em. Blinds 1 and 2. Last one standing takes it.</p>
+
+        <div id="actions" class="actions" hidden>
+            <div class="raise-row">
+                <button id="raiseDown" class="step" type="button" aria-label="Lower the raise">–</button>
+                <div class="raise-val"><span id="raiseVal">0</span></div>
+                <button id="raiseUp" class="step" type="button" aria-label="Raise it more">+</button>
+                <button id="btnAllIn" class="act act-allin" type="button">All-in</button>
+            </div>
+            <div class="act-row">
+                <button id="btnFold" class="act act-fold" type="button">Fold</button>
+                <button id="btnCall" class="act act-call" type="button">Check</button>
+                <button id="btnRaise" class="act act-raise" type="button">Raise</button>
+            </div>
+        </div>
+
+        <button id="btnDeal" class="cta" type="button">Deal</button>
+    </footer>
+
+</div>
+
+<!-- Pannello impostazioni -->
+<div id="scrim" class="scrim" hidden></div>
+<nav id="menu" class="menu" hidden aria-label="Settings">
+    <div class="menu-grab"></div>
+
+    <p class="menu-label">Theme</p>
+    <div id="themeButtons" class="opt-grid">
+        <button class="opt" type="button" data-theme="felt">Felt</button>
+        <button class="opt" type="button" data-theme="midnight">Midnight</button>
+        <button class="opt" type="button" data-theme="ivory">Ivory</button>
+        <button class="opt" type="button" data-theme="neon">Neon</button>
+        <button class="opt" type="button" data-theme="random">Random</button>
+    </div>
+
+    <p class="menu-label">Who you are up against</p>
+    <ul id="whosWho" class="whos-who"></ul>
+
+    <p class="menu-label">How to play</p>
+    <ol class="rules">
+        <li>Texas hold'em, five seats, <em>20 coins</em> each. Blinds are 1 and 2, and the dealer button moves one seat clockwise every hand.</li>
+        <li>Two cards each, then betting on the flop, the turn and the river. Fold, check, call, raise or shove.</li>
+        <li>Best five out of your two plus the five on the table wins the pot. Equal hands split it.</li>
+        <li>Run out of coins and you are out. Take everyone else's and the table is yours.</li>
+    </ol>
+
+    <button id="newGame" class="cta cta-wide" type="button">New game</button>
+    <p id="poolInfo" class="menu-foot"></p>
+</nav>
+
+<!-- Easter egg: tre tocchi sul titolo -->
+<input type="file" id="fileInput" accept="image/*,application/zip,.zip" multiple hidden>
+
+<div id="progress" class="progress" hidden aria-hidden="true">
+    <div id="progressFill" class="progress-fill"></div>
+</div>
+
+<div id="prizeOverlay" class="prize-overlay" hidden>
+    <img id="prizeImg" class="prize-img" alt="">
+    <div id="prizeCount" class="prize-count"></div>
+</div>
+
+<div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+<script src="carte.js?v=1"></script>
+<script src="jszip.min.js?v=1"></script>
+<script src="holdemz.js?v=1"></script>
+</body>
+</html>

@@ -1,0 +1,329 @@
+/* carte.css — kit-carte: la carta da mazzo francese, riutilizzabile.
+   Estratta da scalaquaranta (css/sq-card.css). Nessuna dipendenza: si copia
+   dentro l'app insieme a carte.js e funziona da sola, offline e dentro l'APK.
+
+   PRINCIPIO
+   La carta e' progettata per essere letta quando e' COPERTA ALL'80%.
+   Tutto cio' che identifica vive nella STRISCIA SINISTRA: una fascia piena del
+   colore del seme, a piena altezza, con rango e seme grandi in bianco.
+   Anche quando restano visibili ~12px, quei 12px sono colore saturo + rango:
+   il seme si legge dal colore prima ancora di mettere a fuoco il simbolo.
+   Il resto della faccia e' sacrificabile SOTTO OCCLUSIONE, ma quando la carta e'
+   scoperta deve sembrare una carta da gioco e non una cella di tabella colorata:
+   percio' il corpo porta i pip disegnati nella disposizione classica, gli
+   ornamenti delle figure e il medaglione dell'asso (tutto SVG, vedi carte.js).
+
+   SCALA
+   Una sola leva: --carta-w. Ogni misura deriva da li'. La stessa carta regge
+   33px (combinazioni lunghe), 44px (pile) e 56px (mano) senza cambiare regole.
+
+   CATEGORIE A COLPO D'OCCHIO
+   - numeri  -> fascia colorata liscia, faccia bianca
+   - A/J/Q/K -> banda d'oro sul bordo superiore + faccia color crema
+   - jolly   -> fascia viola a righe diagonali + stella (mai la lettera J)
+   - dorso   -> reticolo diagonale + filetto bianco, nessuna striscia
+   - scelta  -> tutto il CONTORNO diventa oro (segnali di contorno, non di
+                centro: cosi' si vedono anche a carta coperta per la maggior parte)
+
+   LEVE PUBBLICHE (custom property, tutte con un default interno)
+     --carta-w ........ larghezza. L'unica che serve davvero.      [56px]
+     --carta-r ........ rapporto larghezza/altezza                 [0.69]
+     --carta-faccia ... colore di fondo della faccia               [#fbfcfa]
+     --carta-striscia . larghezza della striscia sacra             [40%]
+     --carta-oro / --carta-oro-hi ... l'oro della selezione        [#f5c243 / #ffe28a]
+     --carta-font / --carta-peso .... tipografia                   [stack di sistema / 900]
+     --seme-P  --seme-C  --seme-Q  --seme-F  --seme-J .... i 4+1 colori del mazzo
+     --seme-*-str ..... variante della striscia (dove serve piu' contrasto)
+     --dorso-a  --dorso-b  --dorso-filetto ... il dorso
+   Si possono scrivere in CSS su :root o su un contenitore, oppure passare da
+   Carte.configura({ semi: {...}, coperta: {...} }) che le imposta su :root.
+*/
+
+.carta {
+  /* ---------- token interni: prefisso --kc- per non collidere con l'app ---- */
+  --w: var(--carta-w, 56px);
+  --h: calc(var(--w) / var(--carta-r, 0.69));
+  --kc-bordo:  clamp(1.5px, calc(var(--w) * 0.05), 3px);
+  --kc-raggio: calc(var(--w) * 0.13);
+  --kc-oro:    var(--carta-oro, #f5c243);
+  --kc-oro-hi: var(--carta-oro-hi, #ffe28a);
+
+  /* la cucitura a SINISTRA: le carte si coprono da sinistra verso destra,
+     quindi il bordo che deve staccare e' quello sinistro della carta sopra.
+     E' una riga DURA e stretta, non una sfumatura: a 13 carte in scala di ogni
+     carta restano ~11px e una sfumatura larga li spegnerebbe tutti, rango
+     compreso. Duro + stretto = [striscia][seam scuro][bordo bianco] leggibile
+     anche quando la striscia e' l'unica cosa che si vede. */
+  --kc-seam: clamp(1px, calc(var(--w) * 0.045), 2.5px);
+  --kc-ombra:
+    calc(0px - var(--kc-seam)) 0 0 rgba(0,0,0,.38),
+     0 3px 0 rgba(0,0,0,.20),
+     0 7px 13px rgba(0,0,0,.36);
+
+  --col-seme: #26313a;                /* colore dei pip sulla faccia */
+  --col-str:  #26313a;                /* colore della striscia       */
+
+  position: relative;
+
+  /* ============================ NON TOGLIERE ============================
+     La carta deve essere un CONTENITORE CHIUSO.
+     Senza isolation, .carta__testa (z 2) e .carta__banda (z 3) non restano
+     dentro la carta: sfuggono e si impilano nel contesto del GENITORE. In una
+     fila di carte sovrapposte (dove nessuno mette uno z-index sulle singole
+     carte) le strisce di TUTTE le carte finiscono sopra il bordo bianco e
+     l'ombra della carta successiva. Risultato misurato: 13 carte monoseme fuse
+     in un blocco unico di colore, senza confini, e la banda d'oro dell'asso
+     stesa sopra le due carte dopo.
+     Sembra un problema di ombre e non lo e'.
+     Con isolation:isolate ogni carta si dipinge tutta intera, in ordine: bordo
+     bianco e ombra della carta sopra tornano a coprire quella sotto, che e'
+     esattamente il meccanismo di separazione dei mazzi di Balatro.
+     ===================================================================== */
+  isolation: isolate;
+
+  box-sizing: border-box;
+  flex: 0 0 auto;
+  width: var(--w);
+  height: var(--h);
+  display: flex;
+  align-items: stretch;
+  background: var(--carta-faccia, #fbfcfa);
+  border: var(--kc-bordo) solid #fff;
+  border-radius: var(--kc-raggio);
+  box-shadow: var(--kc-ombra);
+  overflow: hidden;
+  font-family: var(--carta-font, var(--font,
+    -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Helvetica Neue", Arial, sans-serif));
+  font-weight: var(--carta-peso, var(--peso-forte, 900));
+  line-height: 1;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    box-shadow   var(--t-veloce, 110ms) var(--uscita, cubic-bezier(.4,0,.2,1)),
+    border-color var(--t-veloce, 110ms) var(--uscita, cubic-bezier(.4,0,.2,1));
+}
+
+/* ---------------------------------------------------- i 4 colori del mazzo */
+/* Il furto piu' redditizio: a carta coperta all'80% il COLORE DA SOLO dice il
+   seme, prima che l'occhio metta a fuoco il simbolo.
+   --seme-*-str e' la variante che regge il testo bianco sopra: quadri e jolly
+   vanno approfonditi, altrimenti a 33px il bianco sopra l'arancione non tiene.
+   I default stanno qui come fallback: basta definire --seme-P (ovunque, anche
+   solo su un contenitore) per sovrascriverli. */
+.carta[data-seme="P"] { --col-seme: var(--seme-P, #1d3faa); --col-str: var(--seme-P-str, var(--seme-P, #1d3faa)); }
+.carta[data-seme="C"] { --col-seme: var(--seme-C, #e11d48); --col-str: var(--seme-C-str, var(--seme-C, #e11d48)); }
+.carta[data-seme="Q"] { --col-seme: var(--seme-Q, #ea580c); --col-str: var(--seme-Q-str, var(--seme-Q, #d24a06)); }
+.carta[data-seme="F"] { --col-seme: var(--seme-F, #0d7d6e); --col-str: var(--seme-F-str, var(--seme-F, #0d7d6e)); }
+.carta[data-seme="J"] { --col-seme: var(--seme-J, #8b5cf6); --col-str: var(--seme-J-str, var(--seme-J, #7c3aed)); }
+
+/* ------------------------------------------------------ LA STRISCIA SACRA */
+/* Piena altezza, colore pieno del seme, rango bianco grande in alto.
+   E' l'unica parte della carta su cui contiamo sotto occlusione: qualunque
+   modifica qui va misurata a ~12px di larghezza visibile, non a carta intera. */
+.carta__testa {
+  position: relative;
+  z-index: 2;
+  flex: 0 0 auto;
+  width: var(--carta-striscia, 40%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  /* il blocco rango+seme e' spinto verso il bordo SINISTRO: quando la carta
+     viene tagliata a destra, a cadere e' spazio vuoto, non il glifo. */
+  padding: calc(var(--w) * 0.055) calc(var(--w) * 0.075) 0 calc(var(--w) * 0.015);
+  color: #fff;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.20), rgba(255,255,255,0) 38%,
+                            rgba(0,0,0,.16) 100%),
+    var(--col-str);
+  box-shadow: inset -1px 0 0 rgba(0,0,0,.28);
+}
+
+.carta__rango {
+  font-size: calc(var(--w) * 0.375);
+  font-weight: 900;
+  line-height: .90;
+  letter-spacing: -0.045em;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 1px 1px rgba(0,0,0,.45);
+  white-space: nowrap;
+}
+
+/* "10" e' l'unica etichetta a due caratteri di un mazzo francese (ma un mazzo
+   adattato puo' averne altre: la classe la mette carte.js da sola).
+   Rimpicciolita quel tanto che basta per restare dentro la striscia anche
+   quando la striscia e' l'unica cosa visibile. */
+.carta--lungo .carta__rango {
+  font-size: calc(var(--w) * 0.255);
+  letter-spacing: -0.08em;
+  margin-left: calc(var(--w) * -0.015);
+}
+
+.carta__seme {
+  font-size: calc(var(--w) * 0.26);
+  line-height: 1;
+  margin-top: calc(var(--w) * 0.03);
+  text-shadow: 0 1px 1px rgba(0,0,0,.40);
+}
+
+/* ------------------------------------------------------------- LA FACCIA */
+/* Questo e' lo spazio che si vede SOLO a carta scoperta: l'ultima della mano,
+   la cima degli scarti, le carte di una combinazione corta. Finche' era bianco
+   la carta non sembrava una carta da gioco ma una cella di tabella colorata.
+   Ora porta i pip disegnati, gli ornamenti e il medaglione dell'asso: la
+   "carta-ita'". Non ruba niente alla striscia. */
+.carta__corpo {
+  position: relative;
+  flex: 1 1 auto;
+  color: var(--col-seme);
+  overflow: hidden;
+}
+
+/* Il corpo e' alto 2,5 volte la sua larghezza a ogni taglia (il bordo scala con
+   --w), quindi il riquadro 40x100 della faccia lo riempie esatto: le sagome non
+   si deformano mai e tutto scala da --carta-w e basta.
+   L'identita' vale finche' il bordo non entra nel clamp, cioe' per --carta-w fra
+   30px e 60px; fuori da li' preserveAspectRatio="meet" tiene comunque le sagome
+   in proporzione, cambia solo l'aria attorno. */
+.carta__faccia {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  fill: currentColor;
+  /* i pip non devono gridare piu' della striscia: la striscia resta il segnale
+     primario, la faccia e' il corpo della carta */
+  opacity: .88;
+}
+
+/* ornamenti e assi sono illustrazioni, non decorazione di fondo: pieni */
+.carta--figura .carta__faccia,
+.carta[data-rango="A"] .carta__faccia { opacity: .94; }
+
+.carta--jolly .carta__faccia { opacity: .5; }
+
+/* --------------------------------------------------- carte alte: A, J, Q, K */
+/* La banda d'oro e' un segnale di BORDO SUPERIORE: sopravvive alla copertura
+   laterale, quindi "figura o asso" si legge anche in una scala fitta. */
+.carta__banda { display: none; }
+
+.carta--alta .carta__banda {
+  display: block;
+  position: absolute;
+  z-index: 3;
+  top: 0; left: 0; right: 0;
+  height: calc(var(--w) * 0.095);
+  background: linear-gradient(180deg, var(--kc-oro-hi), var(--kc-oro));
+  box-shadow: 0 1px 0 rgba(0,0,0,.30);
+}
+
+.carta--alta .carta__testa { padding-top: calc(var(--w) * 0.135); }
+
+/* la faccia delle alte e' calda: un velo pieno, non un blocco che si puo'
+   tagliare a meta' quando la carta e' coperta */
+.carta--alta .carta__corpo {
+  background: linear-gradient(150deg, #fffaea 0%, #ffedbf 100%);
+}
+
+/* ---------------------------------------------------------------- IL JOLLY */
+/* righe diagonali: nessun seme ha una texture, quindi il jolly si riconosce dal
+   ritmo ancora prima del colore. Mai la lettera J: si confondeva col fante. */
+.carta--jolly .carta__testa {
+  background:
+    repeating-linear-gradient(135deg,
+      rgba(255,255,255,.26) 0 calc(var(--w) * 0.05),
+      rgba(255,255,255,0)   calc(var(--w) * 0.05) calc(var(--w) * 0.115)),
+    linear-gradient(180deg, rgba(255,255,255,.16), rgba(0,0,0,.16)),
+    var(--col-str);
+}
+
+.carta--jolly .carta__rango {
+  font-size: calc(var(--w) * 0.33);
+  line-height: 1.1;
+  letter-spacing: 0;
+  text-shadow: 0 1px 2px rgba(0,0,0,.5);
+}
+
+.carta--jolly .carta__corpo {
+  background: repeating-linear-gradient(135deg,
+    rgba(139,92,246,.13) 0 calc(var(--w) * 0.05),
+    rgba(139,92,246,0)   calc(var(--w) * 0.05) calc(var(--w) * 0.115));
+}
+
+/* ---------------------------------------------------------------- IL DORSO */
+/* Carta coperta: talloni, pile coperte, mani avversarie. Stesso box, stesso
+   bordo, stessa ombra, stesso isolation della carta scoperta, quindi si impila
+   e si sovrappone insieme alle altre senza casi particolari.
+   Nessuna striscia: il dorso NON deve poter essere scambiato per una carta di
+   cui non si legge il seme. Reticolo a doppia diagonale + filetto interno, il
+   passo scala da --carta-w cosi' resta reticolo anche a 33px. */
+.carta--dorso {
+  --kc-passo: calc(var(--w) * 0.115);
+  background: var(--dorso-a, #8d161d);
+}
+
+.carta__retro {
+  position: absolute;
+  inset: 0;
+  background:
+    repeating-linear-gradient(45deg,
+      rgba(255,255,255,.17) 0 calc(var(--kc-passo) * 0.42),
+      rgba(255,255,255,0)   calc(var(--kc-passo) * 0.42) var(--kc-passo)),
+    repeating-linear-gradient(-45deg,
+      rgba(255,255,255,.17) 0 calc(var(--kc-passo) * 0.42),
+      rgba(255,255,255,0)   calc(var(--kc-passo) * 0.42) var(--kc-passo)),
+    linear-gradient(155deg, var(--dorso-b, #c0262f), var(--dorso-a, #8d161d) 70%);
+}
+
+/* il filetto: e' il segnale che regge quando del dorso si vede solo una striscia */
+.carta__retro::after {
+  content: '';
+  position: absolute;
+  inset: calc(var(--w) * 0.07);
+  border: max(1px, calc(var(--w) * 0.028)) solid var(--dorso-filetto, rgba(255,255,255,.62));
+  border-radius: calc(var(--w) * 0.06);
+}
+
+/* -------------------------------------------------------------- SELEZIONE */
+/* Deve gridare: bordo d'oro, anello d'oro esterno, alone e sottolineatura d'oro
+   in basso. Sono tutti segnali di CONTORNO, quindi restano visibili anche
+   quando della carta si vede solo la striscia sinistra. Un segnale di centro
+   (una spunta, un velo) sparirebbe esattamente nel caso in cui serve. */
+.carta.is-scelta {
+  border-color: var(--kc-oro);
+  box-shadow:
+    0 0 0 clamp(2px, calc(var(--w) * 0.055), 3.5px) var(--kc-oro),
+    0 0 14px rgba(245,194,67,.65),
+    -3px 2px 0 rgba(0,0,0,.14),
+     0 9px 0 rgba(0,0,0,.22),
+     0 15px 24px rgba(0,0,0,.48);
+}
+
+.carta.is-scelta::after {
+  content: '';
+  position: absolute;
+  z-index: 4;
+  left: 0; right: 0; bottom: 0;
+  height: calc(var(--w) * 0.13);
+  background: linear-gradient(180deg, var(--kc-oro-hi), var(--kc-oro));
+  box-shadow: 0 -1px 0 rgba(0,0,0,.30);
+}
+
+/* la faccia NON si tinge: il crema e' gia' la firma delle carte alte. La
+   selezione parla solo con l'oro del contorno, cosi' i due segnali non si
+   sovrappongono mai. */
+.carta.is-scelta .carta__testa { box-shadow: inset -1px 0 0 rgba(0,0,0,.34); }
+
+/* --------------------------------------------------------------- OPACHEZZA */
+/* carta non giocabile: si spegne senza perdere il colore del seme */
+.carta.is-spenta { filter: saturate(.45) brightness(.82); }
+
+/* ------------------------------------------------------- taglie di comodo */
+/* Da mettere su un CONTENITORE. Non sono l'API: l'API e' --carta-w, queste sono
+   solo le tre taglie gia' collaudate. */
+.carte-mano  { --carta-w: 56px; }
+.carte-pila  { --carta-w: 44px; }
+.carte-fitta { --carta-w: 33px; }
