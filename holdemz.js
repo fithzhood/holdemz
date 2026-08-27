@@ -547,6 +547,7 @@ function startHand() {
     state.phase = 'playing';
 
     state.flopChecked = false;
+    tuaImmagine(false);                 // la tua immagine torna ferma
     for (const p of state.players) {
         p.folded = p.out;
         p.allIn = false;
@@ -889,6 +890,7 @@ function endHand() {
     els.btnDeal.disabled = false;
     state.busy = false;
 
+    if (me.total > 0 && me.won === 0) tuaImmagine(true);
     reward(me.won > 0, justOut, left.length === 1);
 }
 
@@ -1157,6 +1159,7 @@ function fillWhosWho() {
 
 let pool = [];
 let seatGif = [null, null, null, null];
+let tuaGif = null, tuoFermo = null;   // la quinta immagine: la tua
 let loading = false, loadToken = 0, loadTotal = 0;
 let tapCount = 0, tapTimer = null;
 
@@ -1251,16 +1254,27 @@ function updatePoolInfo() {
 
 async function dressSeats() {
     if (pool.length < 4) return;
-    const pick = shuffle([...pool.keys()]).slice(0, 4);
-    seatGif = pick.slice();
-    for (let i = 0; i < 4; i++) {
+    const quante = pool.length >= 5 ? 5 : 4;      // la quinta, se c'e', e' la tua
+    const pick = shuffle([...pool.keys()]).slice(0, quante);
+    seatGif = pick.slice(0, 4);
+    for (let i = 0; i < quante; i++) {
         const url = await stillFrame(pool[pick[i]].url);
-        const seat = seatEls[i + 1].root;
+        // i primi quattro agli avversari, il quinto a te
+        const seat = seatEls[i < 4 ? i + 1 : 0].root;
         let bg = seat.querySelector('.seat-gif');
         if (!bg) { bg = document.createElement('div'); bg.className = 'seat-gif'; seat.appendChild(bg); }
         bg.style.backgroundImage = `url(${url})`;
         seat.classList.add('has-gif');
+        if (i === 4) { tuoFermo = url; tuaGif = pool[pick[i]].url; }
     }
+}
+
+/** La tua immagine si muove quando perdi un piatto in cui avevi puntato, e
+ *  torna ferma alla mano dopo. Era lo sberleggio della versione del 2025. */
+function tuaImmagine(animata) {
+    if (!tuaGif || !tuoFermo) return;
+    const bg = seatEls[0].root.querySelector('.seat-gif');
+    if (bg) bg.style.backgroundImage = `url(${animata ? tuaGif : tuoFermo})`;
 }
 
 /** Un fotogramma solo: quattro GIF animate attorno al tavolo lo
@@ -1289,6 +1303,7 @@ function clearSeatGifs() {
         const bg = s.root.querySelector('.seat-gif');
         if (bg) bg.remove();
     }
+    tuaGif = tuoFermo = null;
     if (pool.length >= 4) dressSeats();
 }
 
