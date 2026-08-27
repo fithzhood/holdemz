@@ -289,17 +289,37 @@ function npcDecision(p) {
     const callPct = p.coins > 0 ? actualCall / p.coins : 1;
     const wouldBeAllIn = call > p.coins;
 
+    /* Il bluff vero si fa con le mani che altrimenti si butterebbero, quindi
+     * va provato PRIMA di lasciare. Nella versione del 2025 stava dopo, e
+     * siccome al flop la forza e' quasi sempre o carta alta (~0,20) o coppia
+     * (~0,48), fra le due soglie non c'era quasi niente: chi aveva la soglia
+     * di abbandono sopra 0,22 non bluffava mai, per quanto alto avesse il
+     * tratto. The Trickster, il bluffatore per definizione, non bluffava. */
+    if (strength < q.fold && !wouldBeAllIn &&
+        callPct <= q.bluff * .8 + .08 && Math.random() < q.bluff * .45) {
+        return raiseDecision(p, strength);
+    }
+
     if (strength < q.fold) {
         if (wouldBeAllIn && strength > q.fold - .15 && Math.random() < q.loose * .5) return { type: 'call' };
         return { type: 'fold' };
     }
 
-    if (!wouldBeAllIn && strength > q.raise && callPct <= q.loose * .5) {
+    /* Rilancio di valore. Il tetto di costo era `larghezza x 0,5`: per i
+     * quattro caratteri stretti vale 0,1, cioe' meno di una puntata di 4 su
+     * 20 monete — e non rilanciavano MAI, nemmeno col poker servito. Il
+     * minimo di 0,25 glielo permette; a tenerli stretti resta la soglia
+     * sulla forza della mano, che per loro e' altissima. */
+    if (!wouldBeAllIn && strength > q.raise && callPct <= Math.max(q.loose * .5, .25)) {
         return Math.random() < .5 ? raiseDecision(p, strength) : { type: 'call' };
     }
 
-    // il bluff: rilancia anche con poco in mano
-    if (!wouldBeAllIn && Math.random() < q.bluff && callPct <= q.loose * .3) {
+    /* Il bluff. Il tetto di costo era anche qui legato alla larghezza di
+     * manica, cioe' al tratto sbagliato: The Trickster, che ha il valore di
+     * bluff piu' alto del gioco, non bluffava mai con una puntata normale,
+     * mentre The Maniac lo faceva. Adesso e' il bluff stesso a decidere
+     * fin dove ci si spinge. */
+    if (!wouldBeAllIn && Math.random() < q.bluff && callPct <= q.bluff * .8 + .08) {
         return Math.random() < .6 ? raiseDecision(p, strength) : { type: 'call' };
     }
 
