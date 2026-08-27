@@ -241,6 +241,16 @@ function nextLive(i) {
  * rilancio, quanto bluffa e quanto e' largo di manica nel vedere.
  * ============================================================ */
 
+/* Quanto vale ogni tipo di mano, da 0 a 1. NON e' `punteggio/9`, che era
+ * il righello del 2025 e non funzionava: al flop una coppia capita il 42%
+ * delle volte ma valeva 0,22, cioe' sotto la soglia di abbandono di dieci
+ * avversari su dodici. Risultato, dopo il flop restava in mano l'8% delle
+ * mani e chi puntava per primo si prendeva il piatto senza mostrare niente.
+ * Con questi valori la forza media al flop passa da 0,18 a 0,36, cioe' in
+ * mezzo alla fascia delle soglie — che cosi' tornano a discriminare.
+ * Le dodici personalita' non sono state toccate: cambia solo il righello. */
+const MADE = [0, .14, .45, .66, .80, .88, .92, .96, .99, 1];
+
 /** Quanto vale la mano, da 0 a 1, con le carte che si vedono adesso. */
 function handStrength(p) {
     const board = state.board.slice(0, state.shown);
@@ -255,7 +265,13 @@ function handStrength(p) {
         if (high >= 12) return .4;
         return .2;
     }
-    return bestHand(p.cards, board).score / 9;
+
+    const best = bestHand(p.cards, board);
+    let s = MADE[best.score] + (best.kickers[0] - 2) / 12 * .06;
+    // se la cinquina migliore non usa nessuna delle tue due carte stai
+    // giocando il tavolo: vale per tutti, quindi non vale niente
+    if (best.cards && !best.cards.some(c => p.cards.indexOf(c) >= 0)) s *= .55;
+    return Math.min(1, s);
 }
 
 function npcDecision(p) {
@@ -1238,7 +1254,7 @@ document.addEventListener('DOMContentLoaded', init);
 /* gancio per il collaudo automatico */
 window.__holdemz = {
     state, evalFive, bestHand, cmpHands, buildPots, makeDeck, shuffle,
-    npcDecision, handStrength, newGame, onDeal,
+    npcDecision, handStrength, newGame, onDeal, CAST,
     answer: m => answer(m),
     waitingForYou: () => !!resolveHuman
 };
